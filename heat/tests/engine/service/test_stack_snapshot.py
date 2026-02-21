@@ -270,6 +270,44 @@ class SnapshotServiceTest(common.HeatTestCase):
 
         mock_load.assert_called_once_with(self.ctx, stack=mock.ANY)
 
+    @mock.patch.object(stack.Stack, 'load')
+    def test_restore_snapshot_in_progress(self, mock_load):
+        stk = self._create_stack('stack_snapshot_restore_normal')
+        mock_load.return_value = stk
+
+        snapshot_obj = mock.Mock()
+        snapshot_obj.id = str(uuid.uuid4())
+        snapshot_obj.action = 'CREATE'
+        snapshot_obj.status = 'IN_PROGRESS'
+        self.patchobject(snapshot_objects.Snapshot,
+                         'get_snapshot_by_stack').return_value = snapshot_obj
+        ex = self.assertRaises(dispatcher.ExpectedException,
+                               self.engine.stack_restore,
+                               self.ctx, stk.identifier(),
+                               snapshot_obj.id)
+        msg = 'Restoring incomplete snapshot is not supported'
+        self.assertIn(msg, str(ex.exc_info[1]))
+        self.assertEqual(exception.NotSupported, ex.exc_info[0])
+
+    @mock.patch.object(stack.Stack, 'load')
+    def test_restore_snapshot_failed(self, mock_load):
+        stk = self._create_stack('stack_snapshot_restore_normal')
+        mock_load.return_value = stk
+
+        snapshot_obj = mock.Mock()
+        snapshot_obj.id = str(uuid.uuid4())
+        snapshot_obj.action = 'CREATE'
+        snapshot_obj.status = 'FAILED'
+        self.patchobject(snapshot_objects.Snapshot,
+                         'get_snapshot_by_stack').return_value = snapshot_obj
+        ex = self.assertRaises(dispatcher.ExpectedException,
+                               self.engine.stack_restore,
+                               self.ctx, stk.identifier(),
+                               snapshot_obj.id)
+        msg = 'Restoring incomplete snapshot is not supported'
+        self.assertIn(msg, str(ex.exc_info[1]))
+        self.assertEqual(exception.NotSupported, ex.exc_info[0])
+
 
 class SnapshotServiceConvergenceTest(common.HeatTestCase):
 
