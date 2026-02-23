@@ -2275,12 +2275,13 @@ class EngineService(service.ServiceBase):
             msg = _('Deleting in-progress snapshot')
             raise exception.NotSupported(feature=msg)
 
+        snapshot_object.Snapshot.update(
+            cnxt, snapshot_id,
+            {'action': snapshots.Snapshot.DELETE,
+             'status': snapshots.Snapshot.IN_PROGRESS,
+             'status_reason': 'Snapshot delete started'})
+
         if stack.convergence:
-            snapshot_object.Snapshot.update(
-                cnxt, snapshot_id,
-                {'action': snapshots.Snapshot.DELETE,
-                 'status': snapshots.Snapshot.IN_PROGRESS,
-                 'status_reason': 'Snapshot delete started'})
             snapshot = snapshots.Snapshot(
                 context=cnxt, snapshot_id=snapshot_id, stack_id=stack.id,
                 start_time=timeutils.utcnow(),
@@ -2327,6 +2328,11 @@ class EngineService(service.ServiceBase):
         self.resource_enforcer.enforce_stack(stack, is_registered_policy=True)
         snapshot = snapshot_object.Snapshot.get_snapshot_by_stack(
             cnxt, snapshot_id, s, load_rsrc_snapshot=s.convergence)
+
+        if snapshot.status != snapshots.Snapshot.COMPLETE:
+            msg = _("Restoring incomplete snapshot")
+            raise exception.NotSupported(feature=msg)
+
         # FIXME(pas-ha) has to be amended to deny restoring stacks
         # that have disallowed for current user
 
